@@ -54,9 +54,9 @@ Automation is a privilege boundary because requests can cause filesystem access,
 - no general per-client or per-tool capability model beyond filesystem read/write authority;
 - no automated bulk apply of the Preferences dialog; agents can change individual safe keys with
   `prefs.set`;
-- no application-specific JSON-depth policy (serde_json's parser has its default finite recursion
-  limit), aggregate document/session-memory accounting, compositor scratch-space accounting,
-  or command-duration/cancellation budget;
+- no aggregate document/session-memory accounting, compositor scratch-space accounting, or
+  command-duration/cancellation budget (request nesting is bounded by serde_json's 128-level
+  recursion limit, pinned by tests on the JSON-lines and MCP stdio paths);
 - one thread per accepted TCP connection;
 - no structured security audit event stream;
 - desktop screenshot capture/encoding and document import/export have no automation-specific

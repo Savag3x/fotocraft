@@ -384,6 +384,30 @@ mod tests {
         assert_eq!(replies[4]["id"], Value::Null);
     }
 
+    /// A request line within the byte limit can still nest arrays far past any real request.
+    /// serde_json's recursion limit (128) answers it as bad JSON instead of overflowing the
+    /// stack, and the next line is still served. `photocraft-format` enables serde_json's
+    /// `unbounded_depth` feature for `.pcraft` manifests; that only adds an opt-out, which this
+    /// pins nobody takes on the request path.
+    #[test]
+    fn deeply_nested_request_is_bad_json_and_serving_continues() {
+        let h = session();
+        let deep = format!("{}{}", "[".repeat(200_000), "]".repeat(200_000));
+        assert!(deep.len() < MAX_REQUEST_BYTES);
+        let nested_params = format!(r#"{{"id":2,"method":"doc.inspect","params":{}{}}}"#, "[".repeat(100), "]".repeat(100));
+        let input = format!("{deep}\n{nested_params}\n{}\n", r#"{"id":3,"method":"doc.new","params":{"width":8,"height":8}}"#);
+        let mut out = Vec::new();
+        serve_lines(&h, input.as_bytes(), &mut out).unwrap();
+        let replies: Vec<Value> = String::from_utf8(out).unwrap().lines().map(|l| serde_json::from_str(l).unwrap()).collect();
+        assert_eq!(replies.len(), 3, "{replies:?}");
+        assert_eq!(replies[0]["id"], Value::Null);
+        assert!(replies[0]["error"].as_str().unwrap().contains("recursion limit"), "{}", replies[0]);
+        // 100 levels is inside the limit: parsed, then answered by the method itself.
+        assert_eq!(replies[1]["id"], 2);
+        assert!(!replies[1].get("error").and_then(Value::as_str).unwrap_or("").contains("bad JSON"), "{}", replies[1]);
+        assert_eq!(replies[2]["ok"], true, "{}", replies[2]);
+    }
+
     /// Regression: after a panic while the session lock was held, every later request
     /// failed with "session lock poisoned"; the server now keeps serving.
     #[test]

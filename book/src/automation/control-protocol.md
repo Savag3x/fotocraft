@@ -30,8 +30,8 @@ rejected before file effects.
 
 **Known limitations:** the token is a bearer credential and grants the complete non-filesystem
 control surface. There is no encryption, client identity, general per-method capability check,
-explicit JSON-depth policy, aggregate session-memory accounting, or command-duration/cancellation
-budget. Desktop capture/encoding and import/export still need their own operation budgets.
+aggregate session-memory accounting, or command-duration/cancellation budget. Requests nested
+past 128 levels are answered as bad JSON. Desktop capture/encoding and import/export still need their own operation budgets.
 The listener creates one thread per authenticated
 active connection, within the connection cap. Trusted one-shot CLI operations and interactive
 desktop file pickers retain the launching user's normal filesystem authority.

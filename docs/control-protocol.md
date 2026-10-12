@@ -384,7 +384,8 @@ are not rolled back; inspect state before retrying. The MCP bridge drops an over
 reply without automatically retrying the operation. Bridged screenshots are decoded with
 8192-pixel edge, 16,777,216-pixel, and 64 MiB allocation ceilings, even without downscaling.
 
-These ceilings do not implement explicit JSON-depth policy, total session/document-memory
+Request nesting is bounded by serde_json's 128-level recursion limit (a deeper request is
+answered as bad JSON). These ceilings do not implement total session/document-memory
 accounting, compositor scratch-space accounting, command cancellation/duration limits, or
 general per-method capabilities. Desktop screenshot capture/encoding and document import/export
 still need their own operation budgets; the desktop reply ceiling applies after the UI creates

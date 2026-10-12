@@ -47,7 +47,7 @@ Another process on the same host connects to the loopback control server, discov
 
 ### Resource exhaustion
 
-A client opens many TCP connections, sends an extremely long JSON line, creates a huge batch, requests full-size rendering, or repeatedly invokes expensive commands. Request-line, connection, batch, and preview limits mitigate some cases; explicit JSON-depth, document-memory, and command-duration budgets remain absent.
+A client opens many TCP connections, sends an extremely long JSON line, creates a huge batch, requests full-size rendering, or repeatedly invokes expensive commands. Request-line, JSON-depth, connection, batch, and preview limits mitigate some cases; document-memory, and command-duration budgets remain absent.
 
 ### Supply-chain compromise
 

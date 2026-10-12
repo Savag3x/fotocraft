@@ -107,6 +107,42 @@ mod tests {
         assert_eq!(bounded_line(&mut oversized_eof, 5).await.unwrap_err().kind(), std::io::ErrorKind::InvalidData);
     }
 
+    /// A line nested far past serde_json's recursion limit (128) gets a -32700 reply instead of
+    /// overflowing the stack, and the session keeps serving the next request.
+    #[tokio::test]
+    async fn deeply_nested_line_gets_parse_error_and_session_continues() {
+        let initialize = json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2025-06-18",
+                "capabilities": {},
+                "clientInfo": { "name": "depth-test", "version": "1" }
+            }
+        });
+        let deep = format!("{}{}", "[".repeat(200_000), "]".repeat(200_000));
+        assert!(deep.len() < MAX_REQUEST_BYTES);
+        let list = json!({"jsonrpc": "2.0", "id": 2, "method": "tools/list"});
+        let input = format!("{initialize}\n{}\n{deep}\n{list}\n", json!({"jsonrpc": "2.0", "method": "notifications/initialized"}));
+        let (output, mut replies) = tokio::io::duplex(1 << 16);
+        let collect = tokio::spawn(async move {
+            let mut text = String::new();
+            tokio::io::AsyncReadExt::read_to_string(&mut replies, &mut text).await.map(|_| text)
+        });
+        let served =
+            tokio::time::timeout(std::time::Duration::from_secs(10), PhotocraftMcp::headless().serve_io(std::io::Cursor::new(input.into_bytes()), output))
+                .await
+                .expect("a deeply nested line should not hang the session");
+        served.unwrap();
+        let text = collect.await.unwrap().unwrap();
+        let replies: Vec<Value> = text.lines().map(|l| serde_json::from_str(l).unwrap()).collect();
+        let parse_error = replies.iter().find(|r| r["error"]["code"] == -32700).unwrap_or_else(|| panic!("no parse error in {replies:?}"));
+        assert_eq!(parse_error["id"], Value::Null);
+        assert!(parse_error["error"]["message"].as_str().unwrap().contains("recursion limit"), "{parse_error}");
+        assert!(replies.iter().any(|r| r["id"] == 2 && r["result"]["tools"].is_array()), "tools/list after the deep line: {replies:?}");
+    }
+
     #[tokio::test]
     async fn oversized_valid_tool_call_never_reaches_dispatch() {
         let initialize = json!({
